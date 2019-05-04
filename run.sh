@@ -17,6 +17,13 @@ checkout_latest_release() {
 ########################
 
 
+if false; then
+
+
+########################
+# Debian deps install ##
+########################
+
 # install Debian dependencies
 sudo apt update
 # use default g++/gcc versions -> configure to use
@@ -24,13 +31,18 @@ sudo apt update
 sudo apt install build-essential python3-dev python3-setuptools python3-pip make gcc g++ \
 git gfortran
 
+########################
+########################
+
+
 ##################################
 # more helpers with dependencies #
 ##################################
 
 MARCH=`gcc -c -Q -march=native --help=target | grep march | grep -io  "\s[a-z]\+" | grep -io "[a-z]\+"`
-echo 'projects will be compiled for "$MARCH" microarchitecuture'
-echo 'please check if this is your suitable targer microarch!'
+echo "projects will be compiled for \"$MARCH\" microarchitecuture"
+echo "please check if this is your suitable target microarch!"
+echo ""
 
 ##################################
 ##################################
@@ -42,6 +54,7 @@ echo 'please check if this is your suitable targer microarch!'
 
 
 # clone latest OpenBLAS
+rm -rf OpenBLAS
 git clone https://github.com/xianyi/OpenBLAS.git
 cd OpenBLAS
 checkout_latest_release
@@ -60,25 +73,44 @@ sudo echo "* hard memlock unlimited" >> /etc/security/limits.conf
 sudo echo "* soft memlock unlimited" >> /etc/security/limits.conf
 
 sudo service sshd restart
+echo ""
 
 # check if I should compile with OpenMP as it's compromised
 # https://github.com/xianyi/OpenBLAS/blob/develop/GotoBLAS_03FAQ.txt
 # line 59.
-# Will this be compiled for native march?
-make BINARY=64 TARGET=$MARCH DYNAMIC_ARCH=0 USE_OPENMP=1 \
-CC=gcc FC=gfortran USE_THREAD=1 NO_LAPACK=0 NO_LAPACKE=0 \
-BUILD_LAPACK_DEPRECATED=1 NO_WARMUP=0 NO_AFFINITY=0 \
-NO_AVX=0 NO_AVX2=0 NO_PARALLEL_MAKE=0 MAKE_NB_JOBS=$NTHREADS \
+# Will this be compiled for native march? (no "TARGET" flag specified, but according to
+# TODO add link - it will be chosen automagicaly 
+make clean
+make BINARY=64 DYNAMIC_ARCH=0 USE_OPENMP=1 \
+CC=gcc FC=gfortran USE_THREAD=1 \
+BUILD_LAPACK_DEPRECATED=1 \
+NO_WARMUP=0  \
+NO_PARALLEL_MAKE=0 MAKE_NB_JOBS=$NTHREADS \
 PREFIX=/opt/OpenBLAS
+#NO_LAPACKE=0 -> see below
+#NO_LAPACK=0 bug - inverted should be - but seems like default one does build LAPACK/E
+# according to https://github.com/xianyi/OpenBLAS/blob/develop/Makefile.rule
+# Note: enabling affinity has been known to cause problems with NumPy and R
+# NO_AFFINITY = 0 -> leaving default 1 for now
+# NO_AVX=0 NO_AVX2=0 -> don't know if it's inverted -> trying without...
+
+sudo make PREFIX=/opt/OpenBLAS install
 
 ##################################
 ##################################
 
-
+fi
 
 ##################################
 ############## numpy #############
 ################################## 
+
+rm -rf numpy
+git clone https://github.com/numpy/numpy.git
+cd numpy
+checkout_latest_release
+
+
 
 ##################################
 ##################################
