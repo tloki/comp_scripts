@@ -42,7 +42,6 @@ git gfortran -y
 
 # get microarchitecture codename and store it in variable
 MARCH=`gcc -c -Q -march=native --help=target | grep march | grep -io  "\s[a-z]\+" | grep -io "[a-z]\+"`
-echo ""
 echo "projects will be compiled for \"$MARCH\" microarchitecuture"
 echo "please check if this is your suitable target microarch!"
 echo ""
