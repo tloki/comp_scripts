@@ -1,0 +1,27 @@
+Sending build context to Docker daemon  7.972MB
+Step 1/8 : FROM ubuntu:18.04
+ ---> d131e0fa2585
+Step 2/8 : WORKDIR /root
+ ---> Using cache
+ ---> 9682f2d7645d
+Step 3/8 : RUN apt update && apt upgrade -y
+ ---> Using cache
+ ---> 3e84fbed12ae
+Step 4/8 : RUN apt update && apt install sudo -y
+ ---> Using cache
+ ---> 4e50252b1881
+Step 5/8 : RUN apt update && apt install build-essential python3-dev python3-setuptools python3-pip make gcc g++ git gfortran -y
+ ---> Using cache
+ ---> 22aec6a318b2
+Step 6/8 : ADD ./run.sh /root/run.sh
+ ---> Using cache
+ ---> 3e05585de962
+Step 7/8 : RUN bash run.sh
+ ---> Using cache
+ ---> f9c6b1950b23
+Step 8/8 : CMD ["/bin/bash"]
+ ---> Running in d35d91752725
+Removing intermediate container d35d91752725
+ ---> 03cf947855dc
+Successfully built 03cf947855dc
+Successfully tagged openblas-npy-build:latest

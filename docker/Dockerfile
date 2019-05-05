@@ -12,4 +12,9 @@ git gfortran -y
 
 ADD ./run.sh /root/run.sh
 
-CMD ["/bin/bash", "-u", "/root/run.sh"]
+# run compilaton for the first time, including tests
+
+RUN bash run.sh
+
+# add something useful here
+CMD ["/bin/bash"]
