@@ -44,11 +44,13 @@ git gfortran -y
 MARCH=`gcc -c -Q -march=native --help=target | grep march | grep -io  "\s[a-z]\+" | grep -io "[a-z]\+"`
 
 # override MARCH if you'd like it to be compiled for another microarch
-# MARCH=skylake # 'skylake' is also suitable for kabylake
+MARCH=skylake # 'skylake' is also suitable for kabylake
 
-# gcc version, change values to ones suitable (probably best to use gcc/g++)
+# gcc and gfortran versions (I think they need to be matched)
+# - change values to ones suitable (probably best to use gcc/g++)
 GCCV=gcc-8
 GXXV=g++-8
+GFORTV=gfortran-8
 
 # OpenBLAS target,
 # find available ones here https://github.com/xianyi/OpenBLAS/blob/develop/TargetList.txt
@@ -61,7 +63,7 @@ echo "OpenBLAS will be compiled for \"$OBTARGET\""
 echo ""
 sleep 5
 
-sudo apt install $GCCV $GXXV
+sudo apt install $GCCV $GXXV $GFORTV -y
 
 ##################################
 ##################################
@@ -98,10 +100,11 @@ echo ""
 # https://github.com/xianyi/OpenBLAS/blob/develop/GotoBLAS_02QuickInstall.txt line 23 - it will be chosen automagicaly 
 make clean
 make BINARY=64 DYNAMIC_ARCH=0 USE_OPENMP=1 \
-CC=$GCCV FC=gfortran USE_THREAD=1 \
+CC=$GCCV FC=$GFORTV USE_THREAD=1 \
 NO_WARMUP=0 TARGET=$OBTARGET \
 NO_PARALLEL_MAKE=0 MAKE_NB_JOBS=$NTHREADS \
 PREFIX=/opt/OpenBLAS
+
 
 #NO_LAPACKE=0 -> see below
 #NO_LAPACK=0 - is this a bug? If I set this to be equal to 0, I have this problem https://github.com/xianyi/OpenBLAS/issues/250
@@ -162,6 +165,7 @@ CXXFLAGS="-O2 -march=$MARCH -m64" \
 FFLAGS="-O2 -march=$MARCH -m64" \
 CC=$GCCV \
 CXX=$GCCV \
+FC=$GFORTV \
 BLAS=/opt/OpenBLAS/lib/libopenblas.a \
 LAPACK=/opt/OpenBLAS/lib/libopenblas.a \
 LD_LIBRARY_PATH=/opt/OpenBLAS/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
