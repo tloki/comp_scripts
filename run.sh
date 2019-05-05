@@ -181,5 +181,14 @@ python3 -c 'import numpy; numpy.test("full");'
 # TestGauss.test_100
 # E       AssertionError: (something)
 
+# test yourself if every core on your system is active
+
+echo "matmul test took:"
+python3 -c "import timeit; print(timeit.Timer(\"import numpy as np;size = 10000;a = np.random.random_sample((size, size));b = np.random.random_sample((size, size));n = np.dot(a,b)\").timeit(number=2))"
+echo "seconds"
+echo "sleep 5"
+
+# for i7 8650U on Ubuntu 18.04, all threads used, it takes 41 seconds
+
 ##################################
 ##################################

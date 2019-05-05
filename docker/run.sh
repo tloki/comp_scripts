@@ -99,6 +99,8 @@ PREFIX=/opt/OpenBLAS
 
 sudo make PREFIX=/opt/OpenBLAS install
 
+cd ..
+
 ##################################
 ##################################
 
@@ -165,7 +167,7 @@ cd ..
 python3 -c "import numpy as np; np.__config__.show()"
 
 # run tests:
-sudo -H pip3 install pytest
+sudo -H pip3 install pytest nose pytz
 python3 -c 'import numpy; numpy.test("full");'
 
 # 6 tests failing for now:
