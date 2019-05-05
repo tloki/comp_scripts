@@ -42,10 +42,26 @@ git gfortran -y
 
 # get microarchitecture codename and store it in variable
 MARCH=`gcc -c -Q -march=native --help=target | grep march | grep -io  "\s[a-z]\+" | grep -io "[a-z]\+"`
+
+# override MARCH if you'd like it to be compiled for another microarch
+# MARCH=skylake # 'skylake' is also suitable for kabylake
+
+# gcc version, change values to ones suitable (probably best to use gcc/g++)
+GCCV=gcc-8
+GXXV=g++-8
+
+# OpenBLAS target,
+# find available ones here https://github.com/xianyi/OpenBLAS/blob/develop/TargetList.txt
+OBTARGET=HASWELL
+
 echo ""
-echo "projects will be compiled for \"$MARCH\" microarchitecuture"
+echo "projects will be compiled using \"$GCCV\" for \"$MARCH\" microarchitecuture"
 echo "please check if this is your suitable target microarch!"
+echo "OpenBLAS will be compiled for \"$OBTARGET\""
 echo ""
+sleep 5
+
+sudo apt install $GCCV $GXXV
 
 ##################################
 ##################################
@@ -82,8 +98,8 @@ echo ""
 # https://github.com/xianyi/OpenBLAS/blob/develop/GotoBLAS_02QuickInstall.txt line 23 - it will be chosen automagicaly 
 make clean
 make BINARY=64 DYNAMIC_ARCH=0 USE_OPENMP=1 \
-CC=gcc FC=gfortran USE_THREAD=1 \
-NO_WARMUP=0  \
+CC=$GCCV FC=gfortran USE_THREAD=1 \
+NO_WARMUP=0 TARGET=$OBTARGET \
 NO_PARALLEL_MAKE=0 MAKE_NB_JOBS=$NTHREADS \
 PREFIX=/opt/OpenBLAS
 
@@ -144,8 +160,8 @@ echo ""
 CFLAGS="-O2 -march=$MARCH -m64" \
 CXXFLAGS="-O2 -march=$MARCH -m64" \
 FFLAGS="-O2 -march=$MARCH -m64" \
-CC="gcc" \
-CXX="gcc" \
+CC=$GCCV \
+CXX=$GCCV \
 BLAS=/opt/OpenBLAS/lib/libopenblas.a \
 LAPACK=/opt/OpenBLAS/lib/libopenblas.a \
 LD_LIBRARY_PATH=/opt/OpenBLAS/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
