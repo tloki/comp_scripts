@@ -415,6 +415,20 @@ make -j $NTHREADS
 sudo make install
 sudo ldconfig
 
+cd ../../..
+pwd
+
+
+#########################
+###### other ############
+#########################
+
+sudo -H pip3 install nltk scikit-learn numba
+
+##########################
+###### tensorflow ########
+##########################
+
 # tutorial:
 # https://www.pyimagesearch.com/2018/08/15/how-to-install-opencv-4-on-ubuntu/
 
