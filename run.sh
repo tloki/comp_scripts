@@ -1,5 +1,41 @@
 #!/usr/bin/env bash
 
+#######################
+####### config ########
+#######################
+
+# TODO: add all user config here -
+
+# MARCH + auto
+# TARGET
+
+# custom release versions
+# if not specified - latest release may will be selected
+# warning - autorelease may select unstable or rc releases also!
+
+# OpenBLAS version, https://github.com/xianyi/OpenBLAS/releases
+OPBLS_BRANCH=
+# numpy version, https://github.com/numpy/numpy/releases
+NUMPY_BRANCH=
+# scipy version, https://github.com/scipy/scipy/releases
+SCIPY_BRANCH=
+# opencv version, https://github.com/opencv/opencv/releases
+OPNCV_BRANCH=
+
+# gnu compilers version, 8 or 9 is encouraged as of May 2019.
+GV=8
+
+# numba compiler will be downloaded using pip (not building - not needed)
+# there is a possibility that it's incompatible with latest numpy
+
+# TODO:
+# cufigurable script versions:
+# Optimus Tensorflow + numba + opencv
+# ROCm Tensorflow + numba + opencv
+# nvidia TF + numba + opencv
+# SkylakeX (does it need something other than TARGET and opencv skylake directive?) 
+# tensorflow CPU?
+
 ########################
 ####### helpers ########
 ########################
@@ -9,11 +45,22 @@
 NTHREADS=`nproc --all`	# get number of cpu threads
 NCORES=`grep -m 1 'cpu cores' /proc/cpuinfo | grep -io "[0-9]\+"`  # get number of cpu cores
 
-checkout_latest_release() {
+checkout_latest_release2() {
     git fetch --tags
     latestTag=$(git describe --tags `git rev-list --tags --max-count=1`)
     git checkout $latestTag
 }
+
+checkout_latest_release() {
+    URL=`git remote get-url origin`
+    RLS_URL=$URL/releases/latest
+    REDIR_URL=`curl -Ls -o /dev/null -w %{url_effective} $RLS_URL`
+    RLS_VER=${REDIR_URL##*/}
+    # echo $RLS_VER
+    git checkout $RLS_VER
+}
+
+
 
 echo "detected $NCORES CPU cores"
 echo "detected $NTHREADS CPU threads"
@@ -29,8 +76,8 @@ echo "detected $NTHREADS CPU threads"
 # install Debian dependencies
 sudo apt update
 # use default g++/gcc versions -> use update-alternatives if you want another gcc/g++ version
-sudo apt install build-essential python3-dev python3-setuptools python3-pip make gcc g++ \
-git gfortran -y
+sudo apt install build-essential python3-dev python3-setuptools python3-pip make \
+git -y
 
 ########################
 ########################
@@ -44,13 +91,16 @@ git gfortran -y
 MARCH=`gcc -c -Q -march=native --help=target | grep march | grep -io  "\s[a-z]\+" | grep -io "[a-z]\+"`
 
 # override MARCH if you'd like it to be compiled for another microarch
-MARCH=skylake # 'skylake' is also suitable for kabylake
+MARCH=skylake # 'skylake' is also suitable for kabylake/R
 
 # gcc and gfortran versions (I think they need to be matched)
 # - change values to ones suitable (probably best to use gcc/g++)
-GCCV=gcc-8
-GXXV=g++-8
-GFORTV=gfortran-8
+VER=GV
+GCCV=gcc-$VER
+GXXV=g++-$VER
+GFORTV=gfortran-$VER
+CXXV=c++-$VER
+CCV=cc-$VER
 
 # OpenBLAS target,
 # find available ones here https://github.com/xianyi/OpenBLAS/blob/develop/TargetList.txt
@@ -61,10 +111,21 @@ echo "projects will be compiled using \"$GCCV\" for \"$MARCH\" microarchitecutur
 echo "please check if this is your suitable target microarch!"
 echo "OpenBLAS will be compiled for \"$OBTARGET\""
 echo ""
-sleep 5
+#sleep 5
 
+# update alternatives
+# TODO: revert alternatives after compilation!
 sudo apt install $GCCV $GXXV $GFORTV -y
+sudo update-alternatives --install /usr/bin/gcc                      gcc                     /usr/bin/$GCCV                        50
+sudo update-alternatives --install /usr/bin/gfortran                 gfortran                /usr/bin/$GFORTV                      50
+sudo update-alternatives --install /usr/bin/g++                      g++                     /usr/bin/$GXXV                        50
+sudo update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc-ar  x86_64-linux-gnu-gcc-ar /usr/bin/x86_64-linux-gnu-gcc-ar-$VER 50
+sudo update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc     x86_64-linux-gnu-gcc    /usr/bin/x86_64-linux-gnu-gcc-$VER    50
+# TODO: fix?
+#sudo update-alternatives --install /usr/bin/c++                      c++                     /usr/bin/$CXXV                        50 
 
+mkdir builds_comp_scripts
+cd builds_comp_scripts
 ##################################
 ##################################
 
@@ -128,6 +189,7 @@ cd ..
 ############## numpy #############
 ################################## 
 
+cd builds_comp_scripts
 sudo -H pip3 install cython
 
 sudo rm -rf numpy
@@ -164,7 +226,7 @@ CFLAGS="-O2 -march=$MARCH -m64" \
 CXXFLAGS="-O2 -march=$MARCH -m64" \
 FFLAGS="-O2 -march=$MARCH -m64" \
 CC=$GCCV \
-CXX=$GCCV \
+CXX=$GXXV \
 FC=$GFORTV \
 BLAS=/opt/OpenBLAS/lib/libopenblas.a \
 LAPACK=/opt/OpenBLAS/lib/libopenblas.a \
@@ -173,7 +235,7 @@ NPY_BLAS_ORDER=openblas,blis \
 BLAS=openblas LAPACK=openblas \
 LAPACK=openblas \
 ATLAS=openblas \
-python3 setup.py build -j $NTHREADS --fcompiler=gfortran
+python3 setup.py build -j $NTHREADS --fcompiler=$GFORTV --compiler=$GCCV
 
 echo "installing numpy"
 echo ""
@@ -181,7 +243,7 @@ echo ""
 # will be installed in /usr/local/lib/python3.6/dist-packages/
 sudo python3 setup.py install
 
-cd ..
+cd ../..
 # test config:
 
 python3 -c "import numpy as np; np.__config__.show()"
@@ -189,27 +251,213 @@ python3 -c "import numpy as np; np.__config__.show()"
 # run tests:
 sudo -H pip3 install pytest nose pytz
 #python3 -c 'import numpy; numpy.test("full");'
-python3 numpy/runtests.py -m full -- -ras
+python3 builds_comp_scripts/numpy/runtests.py -m full -- -ras
 
-# 6 tests failing for now:
-
-# TestCholesky.test_basic_property
-# E       numpy.linalg.LinAlgError: Matrix is not positive definite;
-# err        = 'invalid value'
-# flag       = 8
-
-# and 5 of those:
-# TestGauss.test_100
-# E       AssertionError: (something)
-
-# test yourself if every core on your system is active
-
-echo "matmul test took:"
-python3 -c "import timeit; print(timeit.Timer(\"import numpy as np;size = 10000;a = np.random.random_sample((size, size));b = np.random.random_sample((size, size));n = np.dot(a,b)\").timeit(number=2))"
-echo "seconds"
-echo "sleep 5"
-
+#echo "matmul test took:"
+#python3 -c "import timeit; print(timeit.Timer(\"import numpy as np;size = 10000;a = np.random.random_sample((size, size));b = np.random.random_sample((size, size));n = np.dot(a,b)\").timeit(number=2))"
+#echo "seconds"
+#echo "sleep 5"
 # for i7 8650U on Ubuntu 18.04, all threads used, it takes 41 seconds
 
 ##################################
 ##################################
+
+
+##################################
+############## scipy #############
+##################################
+
+cd builds_comp_scripts
+
+sudo rm -rf scipy
+git clone https://github.com/scipy/scipy.git
+cd scipy
+#checkout_latest_release
+# TODO: un-hardcode this!
+git checkout v1.2.1
+
+cp ../numpy/site.cfg site.cfg
+
+
+echo "building scipy ($MARCH)"
+echo ""
+
+
+
+#CFLAGS="-march=$MARCH -m64" \
+#CXXFLAGS="-march=$MARCH -m64" \
+#FFLAGS="-march=$MARCH -m64" \
+CC=$GCCV \
+CXX=$GXXV \
+FC=$GFORTV \
+BLAS=/opt/OpenBLAS/lib/libopenblas.a \
+LAPACK=/opt/OpenBLAS/lib/libopenblas.a \
+LD_LIBRARY_PATH=/opt/OpenBLAS/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
+NPY_BLAS_ORDER=openblas,blis \
+BLAS=openblas  \
+LAPACK=openblas \
+ATLAS=openblas \
+python3 setup.py build -j $NTHREADS
+#config       \
+#build # \
+#build_clib   \
+#build_ext    \
+echo "installing scipy"
+sudo python3 setup.py install
+
+cd ../..
+
+# test config:
+# python3 -c "import scipy as sp; sp.__config__.show()"
+
+# run tests:
+python3 builds_comp_scripts/scipy/runtests.py -m full -- -ras
+
+##################################
+##################################
+
+
+###########################################
+# coffe ###################################
+###########################################
+
+
+###########################################
+############## opencv nonCuda #############
+###########################################
+exit 0
+
+cd builds_comp_scripts
+
+sudo rm -rf opencv
+git clone https://github.com/opencv/opencv.git
+git clone https://github.com/opencv/opencv_contrib.git
+cd scipy
+checkout_latest_release
+cd ..
+cd opencv_contrib
+checkout_latest_release
+cd ..
+
+# deps
+sudo apt-get purge x264 libx264-dev -y
+
+sudo apt-get install build-essential cmake unzip pkg-config -y
+sudo apt-get install libjpeg-dev libpng-dev libtiff-dev -y
+sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev libv4l-dev -y
+sudo apt-get install libxvidcore-dev libx264-dev -y
+
+# If you are using Ubuntu 18.04
+sudo apt-get install libtiff-dev -y
+sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev  -y
+sudo apt-get install libxine2-dev libv4l-dev -y
+sudo apt-get install libtbb-dev -y
+sudo apt-get install libfaac-dev libmp3lame-dev libtheora-dev -y
+sudo apt-get install libvorbis-dev libxvidcore-dev -y
+sudo apt-get install libopencore-amrnb-dev libopencore-amrwb-dev -y
+sudo apt-get install x264 v4l-utils -y
+
+# Optional dependencies
+sudo apt-get install libprotobuf-dev protobuf-compiler -y
+sudo apt-get install libgoogle-glog-dev libgflags-dev -y
+sudo apt-get install doxygen -y
+
+# packages you might find outdated, need newer version postfix or so
+# packages above might need it too 
+sudo apt install libgstreamer1.0-dev libgtk-3-dev libdc1394-22-dev \
+qt5-default libgtk2.0-dev libgstreamer-plugins-base1.0-dev \
+libgphoto2-dev libeigen3-dev libhdf5-dev -y
+
+sudo apt install ccache libva-dev libavresample-dev libleptonica-dev  tesseract-ocr -y
+sudo apt-get install libtesseract-dev -y
+
+cd opencv
+mkdir build
+cd build
+
+sudo -H pip3 install bs4 pylint tesserocr
+
+CC=$CCV \
+CXX=$CXXV \
+FC=$GFORTV \
+cmake \
+    -D CMAKE_BUILD_TYPE=RELEASE \
+    -D CMAKE_INSTALL_PREFIX=/usr/local \
+    -D INSTALL_PYTHON_EXAMPLES=ON \
+    -D INSTALL_C_EXAMPLES=ON \
+    -D OPENCV_ENABLE_NONFREE=ON \
+    -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+    -D PYTHON_EXECUTABLE=~/usr/bin/python3 \
+    -D BUILD_EXAMPLES=ON \
+    -D BUILD_DOCS=ON \
+    -D BUILD_PERF_TESTS=ON \
+    -D BUILD_TESTS=ON \
+    -D INSTALL_TESTS=ON \
+    -D WITH_EIGEN=ON \
+    -D WITH_OPENMP=ON \
+    -D WITH_CCACHE=ON \
+    -D INSTALL_TESTS=ON \
+    -D CPU_DISPATCH=DETECT \
+    -D WITH_PTHREADS_PF=ON \
+    -D WITH_V4L=ON \
+    -D WITH_VA=ON \
+    -D WITH_LAPACK=ON \
+    -D WITH_IMGCODEC_PXM=ON \
+    -D WITH_IMGCODEC_PFM=ON \
+    -D WITH_QUIRC=ON \
+    -D ENABLE_PRECOMPILED_HEADERS=ON \
+    -D ENABLE_PYLINT=ON \
+    -D CPU_BASELINE=AVX2 \
+    ..
+
+make -j $NTHREADS
+
+sudo make install
+sudo ldconfig
+
+# tutorial:
+# https://www.pyimagesearch.com/2018/08/15/how-to-install-opencv-4-on-ubuntu/
+
+# skylakeX
+# CPU_DISPATCH=SKYLAKEX
+
+# cuda:
+# WITH_CUDA
+# WITH_CUFFT
+# WITH_CUBLAS
+# WITH_NVCUVID
+
+# opencl:
+# WITH_OPENCL
+# WITH_OPENCL_SVM
+
+# AMD opencl
+# WITH_OPENCLAMDFFT
+# WITH_OPENCLAMDBLAS
+
+# not yet sure:
+# -D ENABLE_FAST_MATH=ON \ # since we don't sport gcc-4 anymore...
+# -D WITH_VA=ON \
+
+# what about:
+
+
+#CC=/usr/bin/gcc-8 \
+#CXX=/usr/bin/g++-8 \
+#FC=gfortran-8 \ 
+#CFLAGS="-O3 -march=native" \
+#FFLAGS="march=native"  \
+#BLAS=/opt/OpenBLAS/lib/libopenblas.a \
+#LAPACK=/opt/OpenBLAS/lib/libopenblas.a \
+#LD_LIBRARY_PATH=/opt/OpenBLAS/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
+#NPY_BLAS_ORDER=openblas,blis \
+#BLAS=openblas  \
+#LAPACK=openblas \
+#ATLAS=openblas \
+#pip3 install \
+#--no-binary :all: \
+#numpy scipy numba scikit-learn
+
+
+# some more
+#-DCUDA_FAST_MATH=1 \ -DCUDA_NVCC_FLAGS="-D_FORCE_INLINES" \ -DENABLE_PRECOMPILED_HEADERS=OFF \ -DWITH_IPP=OFF \ -DBUILD_LIBPROTOBUF_FROM_SOURCES=ON \ -DCUDA_ARCH_NAME="Manual" \ -DCUDA_ARCH_BIN="52 60" \ -DCUDA_ARCH_PTX="60" \ -DWITH_CUBLAS=ON \ -DWITH_CUDA=ON \ -DBUILD_PERF_TESTS=OFF \ -DBUILD_TESTS=OFF \ -DWITH_GTK=OFF \ -DWITH_OPENCL=OFF \ -DBUILD_opencv_java=OFF \ -DBUILD_opencv_python2=OFF \ -DBUILD_opencv_python3=OFF \ -DBUILD_EXAMPLES=OFF \ -D WITH_OPENCL=OFF \ -D WITH_OPENCL_SVM=OFF \ -D WITH_OPENCLAMDFFT=OFF \ -D WITH_OPENCLAMDBLAS=OFF 
