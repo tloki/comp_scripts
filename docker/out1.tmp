@@ -1,0 +1,3 @@
+]0;root@812cc94b571b: ~root@812cc94b571b:~# ls
+[0m[01;34mbuilds_comp_scripts[0m  help-dummy.o  [01;32mrun.sh[0m
+]0;root@812cc94b571b: ~root@812cc94b571b:~# exit
